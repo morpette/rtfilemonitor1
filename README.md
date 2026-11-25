@@ -14,6 +14,10 @@ folder choices in `settings.json` alongside the executable.
 - **JSONL sessions** watches for new or moved-in `.jsonl` files, including those
   in dated subfolders. Select a session to search or filter its timeline and
   expand a row to inspect its original JSON. Keep the app open while monitoring.
+- **SQLite activity** opens a database read-only and monitors one selected table
+  at a time. It shows added, updated, and removed row counts between snapshots
+  while keeping row values hidden. Without a usable primary key, edits appear
+  as added and removed rows. Switching tables clears the activity list.
 
 ## Build
 

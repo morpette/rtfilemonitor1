@@ -16,10 +16,15 @@
         </Style>
     </Window.Resources>
     <DockPanel>
-        <Border DockPanel.Dock="Top" Background="#122338" Padding="24,17">
-            <TextBlock x:Name="AppHeading" Text="ChatGPT File Monitor" FontSize="24" FontWeight="SemiBold" Foreground="White"/>
+        <Border x:Name="Banner" DockPanel.Dock="Top" Background="#122338" Padding="24,17">
+            <DockPanel>
+                <Button DockPanel.Dock="Right" Content="Settings" Click="OpenSettings"
+                        VerticalAlignment="Center" Margin="16,0,0,0"/>
+                <TextBlock x:Name="AppHeading" Text="ChatGPT File Monitor" FontSize="24" FontWeight="SemiBold" Foreground="White"
+                           VerticalAlignment="Center"/>
+            </DockPanel>
         </Border>
-        <Border DockPanel.Dock="Top" Margin="20,16,20,0" Padding="16,12" Background="White" CornerRadius="8">
+        <Border x:Name="Dashboard" DockPanel.Dock="Top" Margin="20,16,20,0" Padding="16,12" Background="White" CornerRadius="8">
             <Grid>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto" MinWidth="126"/>
@@ -52,7 +57,7 @@
                 <TextBlock Grid.Row="5" Grid.ColumnSpan="4" x:Name="SettingsStatus" Foreground="#A12622" TextWrapping="Wrap"/>
             </Grid>
         </Border>
-        <TabControl Margin="20,14,20,20" Background="White">
+        <TabControl x:Name="Main" Margin="20,14,20,20" Background="White">
             <TabItem Header=".codex folder">
                 <DockPanel Margin="14">
                     <TextBlock DockPanel.Dock="Top" x:Name="ActivityEmpty" Margin="0,0,0,10"
@@ -144,6 +149,40 @@
                         </ListBox>
                     </DockPanel>
                 </Grid>
+            </TabItem>
+            <TabItem Header="SQLite activity">
+                <DockPanel Margin="14">
+                    <Grid DockPanel.Dock="Top" Margin="0,0,0,10">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="2*"/>
+                        </Grid.ColumnDefinitions>
+                        <Button Content="Open database…" Click="OpenSqlite"/>
+                        <TextBlock Grid.Column="1" x:Name="SqlitePath" VerticalAlignment="Center"
+                                   Margin="10,0" TextTrimming="CharacterEllipsis"
+                                   ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}"/>
+                        <Label Grid.Column="2" Content="_Table" Target="{Binding ElementName=SqliteTables}" VerticalAlignment="Center"/>
+                        <ComboBox Grid.Column="3" x:Name="SqliteTables" SelectionChanged="SelectSqliteTable"
+                                  VerticalAlignment="Center" IsEnabled="False"/>
+                    </Grid>
+                    <TextBlock DockPanel.Dock="Top" x:Name="SqliteStatus" Margin="0,0,0,8" TextWrapping="Wrap"
+                               Foreground="#4A5C70" Text="Open a SQLite database to monitor committed row changes."/>
+                    <TextBlock DockPanel.Dock="Top" Margin="0,0,0,10" TextWrapping="Wrap" Foreground="#4A5C70"
+                               Text="Counts show net changes between snapshots. Row values stay hidden."/>
+                    <DataGrid x:Name="SqliteGrid" AutoGenerateColumns="False" IsReadOnly="True"
+                              CanUserAddRows="False" HeadersVisibility="Column" GridLinesVisibility="Horizontal"
+                              HorizontalGridLinesBrush="#E3EAF1" AlternatingRowBackground="#F4F7FA">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="Observed at" Binding="{Binding Observed, StringFormat=T}" Width="1.3*"/>
+                            <DataGridTextColumn Header="Table" Binding="{Binding Table}" Width="2*"/>
+                            <DataGridTextColumn Header="Added" Binding="{Binding Added}" Width="*"/>
+                            <DataGridTextColumn Header="Updated" Binding="{Binding Updated, TargetNullValue=—}" Width="*"/>
+                            <DataGridTextColumn Header="Removed" Binding="{Binding Removed}" Width="*"/>
+                        </DataGrid.Columns>
+                    </DataGrid>
+                </DockPanel>
             </TabItem>
         </TabControl>
     </DockPanel>

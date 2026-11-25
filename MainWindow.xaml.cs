@@ -13,6 +13,11 @@ namespace RtFileMonitor;
 
 public partial class MainWindow : Window
 {
+    private void OpenSettings(object sender, RoutedEventArgs e)
+    {
+        new SettingsWindow { Owner = this }.ShowDialog();
+    }
+
     private sealed record Preferences(string? Activity = null, string? Sessions = null);
     private sealed record ActivityRow(string Name, string Folder, DateTime Modified, long Size);
 
@@ -62,6 +67,7 @@ public partial class MainWindow : Window
     public MainWindow()
     {
         InitializeComponent();
+        SqliteGrid.ItemsSource = sqliteChanges;
         string? version = typeof(MainWindow).Assembly.GetCustomAttributes<AssemblyMetadataAttribute>()
             .FirstOrDefault(attribute => attribute.Key == "PackageVersionLabel")?.Value;
         if (!string.IsNullOrEmpty(version))
@@ -365,6 +371,8 @@ public partial class MainWindow : Window
 
     protected override void OnClosed(EventArgs e)
     {
+        sqliteOpenGeneration++;
+        sqliteRead?.Cancel();
         sessionTimer.Stop();
         activityGeneration++;
         sessionGeneration++;
