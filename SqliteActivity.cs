@@ -11,6 +11,137 @@ internal static class SqliteActivity
     internal sealed record Snapshot(string Schema, Dictionary<string, string>? Keyed, Dictionary<string, int> Rows);
     internal sealed record Change(DateTime Observed, string Table, int Added, int? Updated, int Removed);
 
+    internal sealed record Column(string Name, string DeclaredType);
+    internal sealed record SchemaObject(string Type, string Name, IReadOnlyList<Column> Columns, string? Error);
+
+    internal static async Task WatchCommits(string root, string[] names, Action<string[]> changed, CancellationToken stop)
+    {
+        var probes = names.Select(name => new CommitProbe(Path.Combine(root, name))).ToArray();
+        try
+        {
+            using var timer = new PeriodicTimer(TimeSpan.FromMilliseconds(500));
+            do
+            {
+                var active = new List<string>();
+                for (int i = 0; i < probes.Length; i++)
+                {
+                    stop.ThrowIfCancellationRequested();
+                    if (probes[i].HasChanges())
+                        active.Add(names[i]);
+                }
+                if (active.Count > 0)
+                    changed(active.ToArray());
+            }
+            while (await timer.WaitForNextTickAsync(stop));
+        }
+        finally
+        {
+            foreach (var probe in probes)
+                probe.Dispose();
+        }
+    }
+
+    private sealed class CommitProbe(string path) : IDisposable
+    {
+        // SQLite data_version values can only be compared on the same connection.
+        private Database? database;
+        private long? version;
+        private bool wasMissing;
+
+        public bool HasChanges()
+        {
+            if (!File.Exists(path))
+            {
+                Dispose();
+                version = null;
+                wasMissing = true;
+                return false;
+            }
+
+            try
+            {
+                database ??= new Database(path);
+                using var query = database.Query("PRAGMA main.data_version");
+                if (!query.Next())
+                    return false;
+                long current = Native.sqlite3_column_int64(query.Handle, 0);
+                bool changed = wasMissing || (version.HasValue && version != current);
+                version = current;
+                wasMissing = false;
+                return changed;
+            }
+            catch (IOException)
+            {
+                // A busy database can be read again on the next poll.
+                return false;
+            }
+        }
+
+        public void Dispose()
+        {
+            database?.Dispose();
+            database = null;
+        }
+    }
+
+    internal static IEnumerable<SchemaObject> TablesAndViews(string path)
+    {
+        using var database = new Database(path);
+        using var query = database.Query("SELECT type, name FROM sqlite_master WHERE type IN ('table', 'view') " +
+            "ORDER BY type, name COLLATE NOCASE, name");
+        while (query.Next())
+        {
+            string name = query.Text(1);
+            var columns = new List<Column>();
+            string? error = null;
+            try
+            {
+                string argument = name.Replace("'", "''");
+                using var info = database.Query($"PRAGMA main.table_xinfo('{argument}')");
+                while (info.Next())
+                    columns.Add(new Column(info.Text(1), info.Text(2)));
+            }
+            catch (IOException failure)
+            {
+                error = failure.Message;
+            }
+            yield return new SchemaObject(query.Text(0), name, columns, error);
+        }
+    }
+
+    internal const int PageSize = 100;
+
+    internal static (List<string[]> Rows, bool HasMore) ReadPage(string path, SchemaObject table, long offset)
+    {
+        static string Quote(string name) => "\"" + name.Replace("\"", "\"\"") + "\"";
+        using var database = new Database(path);
+        string columns = string.Join(", ", table.Columns.Select(column => Quote(column.Name)));
+        using var query = database.Query($"SELECT {columns} FROM main.{Quote(table.Name)} LIMIT {PageSize + 1} OFFSET {offset}");
+        var rows = new List<string[]>();
+        while (query.Next())
+        {
+            if (rows.Count == PageSize)
+                return (rows, true);
+            var row = new string[table.Columns.Count];
+            for (int i = 0; i < row.Length; i++)
+            {
+                int type = Native.sqlite3_column_type(query.Handle, i);
+                if (type == 5)
+                    row[i] = "NULL";
+                else if (type == 4)
+                    row[i] = $"BLOB ({Native.sqlite3_column_bytes(query.Handle, i)} bytes)";
+                else
+                {
+                    IntPtr value = Native.sqlite3_column_text(query.Handle, i);
+                    int length = Native.sqlite3_column_bytes(query.Handle, i);
+                    row[i] = Marshal.PtrToStringUTF8(value, Math.Min(length, 4096)) + (length > 4096 ? "…" : "");
+                }
+            }
+            rows.Add(row);
+        }
+        return (rows, false);
+    }
+
     internal static string[] Tables(string path)
     {
         using var database = new Database(path);

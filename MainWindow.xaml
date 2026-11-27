@@ -10,6 +10,32 @@
             <Setter Property="MinHeight" Value="32"/>
             <Setter Property="Cursor" Value="Hand"/>
         </Style>
+        <Style x:Key="TableButtons" TargetType="ListBox">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="MaxHeight" Value="120"/>
+            <Setter Property="ScrollViewer.HorizontalScrollBarVisibility" Value="Disabled"/>
+            <Setter Property="ScrollViewer.VerticalScrollBarVisibility" Value="Auto"/>
+            <Setter Property="ItemsPanel">
+                <Setter.Value><ItemsPanelTemplate><WrapPanel/></ItemsPanelTemplate></Setter.Value>
+            </Setter>
+            <Setter Property="ItemContainerStyle">
+                <Setter.Value>
+                    <Style TargetType="ListBoxItem">
+                        <Setter Property="Template">
+                            <Setter.Value>
+                                <ControlTemplate TargetType="ListBoxItem">
+                                    <RadioButton Margin="0,0,5,4" Padding="9,4" Cursor="Hand"
+                                                 Style="{StaticResource {x:Type ToggleButton}}"
+                                                 IsChecked="{Binding IsSelected, RelativeSource={RelativeSource TemplatedParent}, Mode=TwoWay}"
+                                                 Content="{TemplateBinding Content}" ContentTemplate="{TemplateBinding ContentTemplate}"/>
+                                </ControlTemplate>
+                            </Setter.Value>
+                        </Setter>
+                    </Style>
+                </Setter.Value>
+            </Setter>
+        </Style>
         <Style TargetType="TextBox">
             <Setter Property="Padding" Value="8,5"/>
             <Setter Property="VerticalContentAlignment" Value="Center"/>
@@ -24,44 +50,84 @@
                            VerticalAlignment="Center"/>
             </DockPanel>
         </Border>
-        <Border x:Name="Dashboard" DockPanel.Dock="Top" Margin="20,16,20,0" Padding="16,12" Background="White" CornerRadius="8">
+        <Border x:Name="Dashboard" DockPanel.Dock="Top" Margin="20,16,20,0" Padding="16,12"
+                Background="White" CornerRadius="8" SizeChanged="ResizeDashboard">
+            <Border.Resources>
+                <Style x:Key="FolderPath" TargetType="TextBlock">
+                    <Setter Property="Margin" Value="0,2,0,0"/>
+                    <Setter Property="Foreground" Value="#4A5C70"/>
+                    <Setter Property="TextTrimming" Value="CharacterEllipsis"/>
+                    <Setter Property="ToolTip" Value="{Binding Text, RelativeSource={RelativeSource Self}}"/>
+                </Style>
+                <Style x:Key="DashboardError" TargetType="TextBlock">
+                    <Setter Property="Margin" Value="0,4,0,0"/>
+                    <Setter Property="Foreground" Value="#A12622"/>
+                    <Setter Property="TextWrapping" Value="Wrap"/>
+                    <Style.Triggers>
+                        <Trigger Property="Text" Value="">
+                            <Setter Property="Visibility" Value="Collapsed"/>
+                        </Trigger>
+                    </Style.Triggers>
+                </Style>
+                <Style x:Key="ActivityLight" TargetType="Ellipse">
+                    <Setter Property="Width" Value="14"/>
+                    <Setter Property="Height" Value="14"/>
+                    <Setter Property="Margin" Value="0,0,8,0"/>
+                    <Setter Property="Fill" Value="#CFD8E1"/>
+                    <Setter Property="Stroke" Value="#657789"/>
+                </Style>
+                <ObjectAnimationUsingKeyFrames x:Key="ActivityFlash" Duration="0:0:0.65" FillBehavior="Stop">
+                    <DiscreteObjectKeyFrame KeyTime="0">
+                        <DiscreteObjectKeyFrame.Value><SolidColorBrush Color="#22C55E"/></DiscreteObjectKeyFrame.Value>
+                    </DiscreteObjectKeyFrame>
+                </ObjectAnimationUsingKeyFrames>
+            </Border.Resources>
             <Grid>
                 <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="Auto" MinWidth="126"/>
                     <ColumnDefinition Width="*"/>
-                    <ColumnDefinition Width="Auto"/>
-                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="*"/>
                 </Grid.ColumnDefinitions>
                 <Grid.RowDefinitions>
-                    <RowDefinition/>
-                    <RowDefinition/>
-                    <RowDefinition Height="8"/>
-                    <RowDefinition/>
-                    <RowDefinition/>
-                    <RowDefinition/>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
                 </Grid.RowDefinitions>
-                <TextBlock Text=".Codex folder" FontWeight="SemiBold" VerticalAlignment="Center"/>
-                <TextBlock Grid.Column="1" x:Name="ActivityFolder" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"
-                           ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}"/>
-                <Button Grid.Column="2" Content="Choose folder…" Click="ChooseActivity" AutomationProperties.Name="Choose .Codex folder"/>
-                <Button Grid.Column="3" Content="Select default" Click="ChooseDefaultActivity" Margin="8,0,0,0"
-                        AutomationProperties.Name="Select default .Codex folder"/>
-                <TextBlock Grid.Row="1" Grid.Column="1" x:Name="ActivityStatus" Foreground="#A12622" TextWrapping="Wrap"/>
-                <TextBlock Grid.Row="3" Text="Codex JSONL sessions folder" FontWeight="SemiBold" VerticalAlignment="Center" Margin="0,0,12,0"/>
-                <TextBlock Grid.Row="3" Grid.Column="1" x:Name="SessionFolder" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"
-                           ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}"/>
-                <Button Grid.Row="3" Grid.Column="2" Content="Choose folder…" Click="ChooseSessions" AutomationProperties.Name="Choose Codex JSONL sessions folder"/>
-                <Button Grid.Row="3" Grid.Column="3" Content="Select default" Click="ChooseDefaultSessions" Margin="8,0,0,0"
-                        AutomationProperties.Name="Select default Codex JSONL sessions folder"/>
-                <TextBlock Grid.Row="4" Grid.Column="1" x:Name="SessionStatus" Foreground="#A12622" TextWrapping="Wrap"/>
-                <TextBlock Grid.Row="5" Grid.ColumnSpan="4" x:Name="SettingsStatus" Foreground="#A12622" TextWrapping="Wrap"/>
+                <StackPanel x:Name="ActivityGroup" Margin="0,0,16,0">
+                    <StackPanel Orientation="Horizontal" ToolTip="Flashes green when a file in the .codex folder changes.">
+                        <Ellipse x:Name="CodexLight" Style="{StaticResource ActivityLight}"/>
+                        <TextBlock Text=".codex folder" FontWeight="SemiBold"/>
+                    </StackPanel>
+                    <TextBlock x:Name="ActivityFolder" Style="{StaticResource FolderPath}"/>
+                    <TextBlock x:Name="ActivityStatus" Style="{StaticResource DashboardError}"/>
+                </StackPanel>
+                <Border x:Name="SessionsGroup" Grid.Column="1" BorderBrush="#E3EAF1" BorderThickness="1,0,0,0" Padding="16,0,0,0">
+                    <StackPanel>
+                        <StackPanel Orientation="Horizontal" ToolTip="Flashes green when a JSONL session file changes.">
+                            <Ellipse x:Name="SessionLight" Style="{StaticResource ActivityLight}"/>
+                            <TextBlock Text="JSONL sessions folder" FontWeight="SemiBold"/>
+                        </StackPanel>
+                        <TextBlock x:Name="SessionFolder" Style="{StaticResource FolderPath}"/>
+                        <TextBlock x:Name="SessionStatus" Style="{StaticResource DashboardError}"/>
+                    </StackPanel>
+                </Border>
+                <Border x:Name="SqliteGroup" Grid.Column="2" BorderBrush="#E3EAF1" BorderThickness="1,0,0,0" Padding="16,0,0,0">
+                    <StackPanel>
+                        <StackPanel Orientation="Horizontal" ToolTip="Flashes green when a database selected in Settings receives a committed change.">
+                            <Ellipse x:Name="SqliteLight" Style="{StaticResource ActivityLight}"/>
+                            <TextBlock Text="SQLite" FontWeight="SemiBold"/>
+                        </StackPanel>
+                        <TextBlock x:Name="SqliteLastActive" Style="{StaticResource FolderPath}" TextWrapping="Wrap"/>
+                    </StackPanel>
+                </Border>
+                <TextBlock x:Name="SettingsStatus" Grid.Row="2" Grid.ColumnSpan="3" Style="{StaticResource DashboardError}"/>
             </Grid>
         </Border>
         <TabControl x:Name="Main" Margin="20,14,20,20" Background="White">
             <TabItem Header=".codex folder">
                 <DockPanel Margin="14">
                     <TextBlock DockPanel.Dock="Top" x:Name="ActivityEmpty" Margin="0,0,0,10"
-                               Text="Choose a folder to see file updates here." Foreground="#4A5C70"/>
+                               Foreground="#4A5C70"/>
                     <DataGrid x:Name="ActivityGrid" AutoGenerateColumns="False" IsReadOnly="True"
                               CanUserAddRows="False" HeadersVisibility="Column" GridLinesVisibility="Horizontal"
                               HorizontalGridLinesBrush="#E3EAF1" AlternatingRowBackground="#F4F7FA">
@@ -69,13 +135,20 @@
                             <DataGridTextColumn Header="Filename" Binding="{Binding Name}" Width="2*"/>
                             <DataGridTextColumn Header="Folder" Binding="{Binding Folder}" Width="2*"/>
                             <DataGridTextColumn Header="Date modified" Binding="{Binding Modified, StringFormat=G}" Width="1.5*"/>
-                            <DataGridTextColumn Header="Size (bytes)" Binding="{Binding Size, StringFormat=N0}" Width="*"/>
+                            <DataGridTextColumn Header="Size (MB)" Binding="{Binding SizeMB, StringFormat=N2}" Width="*"/>
                         </DataGrid.Columns>
                     </DataGrid>
                 </DockPanel>
             </TabItem>
             <TabItem Header="JSONL sessions">
                 <Grid Margin="14">
+                    <Grid.Resources>
+                        <Style x:Key="RecordTypeColumn" TargetType="TextBlock">
+                            <Setter Property="Width" Value="132"/>
+                            <Setter Property="Margin" Value="0,0,8,0"/>
+                            <Setter Property="TextWrapping" Value="Wrap"/>
+                        </Style>
+                    </Grid.Resources>
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="230"/>
                         <ColumnDefinition Width="8"/>
@@ -87,6 +160,7 @@
                                 Click="LoadPreviousSessions" HorizontalAlignment="Left" Margin="0,0,0,8"/>
                         <TextBlock DockPanel.Dock="Top" x:Name="PreviousSessionsStatus" TextWrapping="Wrap"
                                    Foreground="#4A5C70" Margin="0,0,0,8"/>
+                        <TextBlock DockPanel.Dock="Top" x:Name="TimelineStatus" Margin="0,0,0,8" Foreground="#4A5C70" TextWrapping="Wrap"/>
                         <ListBox x:Name="SessionList" SelectionChanged="SelectSession"
                                  ScrollViewer.HorizontalScrollBarVisibility="Auto">
                             <ListBox.ItemTemplate>
@@ -103,24 +177,37 @@
                                 <ColumnDefinition Width="Auto"/>
                                 <ColumnDefinition Width="*"/>
                                 <ColumnDefinition Width="Auto"/>
-                                <ColumnDefinition Width="126"/>
+                                <ColumnDefinition Width="150"/>
                             </Grid.ColumnDefinitions>
                             <Label Content="_Search" Target="{Binding ElementName=SearchBox}" VerticalAlignment="Center"/>
                             <TextBox Grid.Column="1" x:Name="SearchBox" TextChanged="FilterChanged"/>
-                            <Label Grid.Column="2" Content="_Type" Target="{Binding ElementName=CategoryBox}" Margin="8,0,0,0" VerticalAlignment="Center"/>
-                            <ComboBox Grid.Column="3" x:Name="CategoryBox" SelectionChanged="FilterChanged" VerticalContentAlignment="Center"/>
+                            <Label Grid.Column="2" Content="_Type" Target="{Binding ElementName=TypeBox}" Margin="8,0,0,0" VerticalAlignment="Center"/>
+                            <ComboBox Grid.Column="3" x:Name="TypeBox" SelectionChanged="FilterChanged" VerticalContentAlignment="Center"/>
                         </Grid>
-                        <TextBlock DockPanel.Dock="Top" x:Name="TimelineStatus" Margin="0,0,0,8" Foreground="#4A5C70" TextWrapping="Wrap"/>
+                        <Border DockPanel.Dock="Top" Background="#F4F7FA" BorderBrush="#E3EAF1"
+                                BorderThickness="1,1,1,0" Padding="7,4">
+                            <DockPanel>
+                                <TextBlock DockPanel.Dock="Left" Text="Type" Style="{StaticResource RecordTypeColumn}" FontWeight="SemiBold"/>
+                                <TextBlock Text="Payload Type" FontWeight="SemiBold"/>
+                            </DockPanel>
+                        </Border>
                         <ListBox x:Name="Timeline" ScrollViewer.HorizontalScrollBarVisibility="Disabled"
-                                 VirtualizingPanel.IsVirtualizing="True" HorizontalContentAlignment="Stretch">
+                                 VirtualizingPanel.IsVirtualizing="True" HorizontalContentAlignment="Stretch" BorderThickness="1" Padding="0">
+                            <ListBox.ItemContainerStyle>
+                                <Style TargetType="ListBoxItem">
+                                    <Setter Property="Padding" Value="0"/>
+                                    <Setter Property="BorderThickness" Value="0"/>
+                                </Style>
+                            </ListBox.ItemContainerStyle>
                             <ListBox.ItemTemplate>
                                 <DataTemplate>
                                     <Border Padding="6,9" BorderBrush="#E3EAF1" BorderThickness="0,0,0,1">
                                         <StackPanel>
                                             <DockPanel LastChildFill="True">
                                                 <TextBlock DockPanel.Dock="Right" Text="{Binding Time}" Foreground="#4A5C70" Margin="12,0,0,0"/>
-                                                <TextBlock DockPanel.Dock="Left" Text="{Binding Category}" Foreground="#285C91" Width="100"/>
-                                                <TextBlock Text="{Binding Title}" FontWeight="SemiBold" TextWrapping="Wrap"/>
+                                                <TextBlock DockPanel.Dock="Left" Text="{Binding RecordType}" Foreground="#285C91"
+                                                           Style="{StaticResource RecordTypeColumn}"/>
+                                                <TextBlock Text="{Binding PayloadType}" FontWeight="SemiBold" TextWrapping="Wrap"/>
                                             </DockPanel>
                                             <TextBox Text="{Binding Summary, Mode=OneWay}" IsReadOnly="True" BorderThickness="0"
                                                      Background="Transparent" TextWrapping="Wrap" MaxHeight="190" VerticalScrollBarVisibility="Auto"
@@ -152,20 +239,45 @@
             </TabItem>
             <TabItem Header="SQLite activity">
                 <DockPanel Margin="14">
+                    <Grid DockPanel.Dock="Top" Margin="0,0,0,8">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="3*"/>
+                        </Grid.ColumnDefinitions>
+                        <StackPanel Margin="0,0,12,0">
+                            <Label Content="_Database" Target="{Binding ElementName=DatabaseChoice}" FontWeight="SemiBold"/>
+                            <ComboBox x:Name="DatabaseChoice" AutomationProperties.Name="Database"
+                                      SelectionChanged="ChangeDatabaseView"/>
+                        </StackPanel>
+                        <StackPanel Grid.Column="1">
+                            <Label Content="Tables" FontWeight="SemiBold"/>
+                            <ListBox x:Name="BrowserTables" AutomationProperties.Name="Database tables"
+                                     Visibility="{Binding Visibility, ElementName=DatabaseView}"
+                                     Style="{StaticResource TableButtons}" SelectionChanged="ChangeBrowserTable">
+                                <ListBox.ItemTemplate>
+                                    <DataTemplate><TextBlock Text="{Binding Name}"/></DataTemplate>
+                                </ListBox.ItemTemplate>
+                            </ListBox>
+                            <ListBox x:Name="SqliteTables" AutomationProperties.Name="Activity tables"
+                                     Visibility="{Binding Visibility, ElementName=ActivityView}"
+                                     Style="{StaticResource TableButtons}" SelectionChanged="SelectSqliteTable" IsEnabled="False">
+                                <ListBox.ItemTemplate>
+                                    <DataTemplate><TextBlock Text="{Binding}"/></DataTemplate>
+                                </ListBox.ItemTemplate>
+                            </ListBox>
+                        </StackPanel>
+                    </Grid>
+                    <Grid>
+                    <DockPanel x:Name="ActivityView">
                     <Grid DockPanel.Dock="Top" Margin="0,0,0,10">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="Auto"/>
                             <ColumnDefinition Width="*"/>
-                            <ColumnDefinition Width="Auto"/>
-                            <ColumnDefinition Width="2*"/>
                         </Grid.ColumnDefinitions>
                         <Button Content="Open database…" Click="OpenSqlite"/>
                         <TextBlock Grid.Column="1" x:Name="SqlitePath" VerticalAlignment="Center"
                                    Margin="10,0" TextTrimming="CharacterEllipsis"
                                    ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}"/>
-                        <Label Grid.Column="2" Content="_Table" Target="{Binding ElementName=SqliteTables}" VerticalAlignment="Center"/>
-                        <ComboBox Grid.Column="3" x:Name="SqliteTables" SelectionChanged="SelectSqliteTable"
-                                  VerticalAlignment="Center" IsEnabled="False"/>
                     </Grid>
                     <TextBlock DockPanel.Dock="Top" x:Name="SqliteStatus" Margin="0,0,0,8" TextWrapping="Wrap"
                                Foreground="#4A5C70" Text="Open a SQLite database to monitor committed row changes."/>
@@ -182,6 +294,18 @@
                             <DataGridTextColumn Header="Removed" Binding="{Binding Removed}" Width="*"/>
                         </DataGrid.Columns>
                     </DataGrid>
+                    </DockPanel>
+                    <DockPanel x:Name="DatabaseView" Visibility="Collapsed">
+                        <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="0,0,0,8">
+                            <Button Content="Refresh" Click="RefreshDatabaseRows"/>
+                            <Button x:Name="PreviousRows" Content="Previous" Click="PreviousDatabaseRows"/>
+                            <Button x:Name="NextRows" Content="Next" Click="NextDatabaseRows"/>
+                            <TextBlock x:Name="BrowserStatus" VerticalAlignment="Center" Margin="8,0"/>
+                        </StackPanel>
+                        <DataGrid x:Name="BrowserRows" AutoGenerateColumns="False" IsReadOnly="True"
+                                  CanUserAddRows="False" HeadersVisibility="Column" MaxColumnWidth="450"/>
+                    </DockPanel>
+                    </Grid>
                 </DockPanel>
             </TabItem>
         </TabControl>

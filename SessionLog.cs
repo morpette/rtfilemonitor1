@@ -8,7 +8,8 @@ using Microsoft.Win32.SafeHandles;
 
 namespace RtFileMonitor;
 
-internal sealed record TimelineEntry(int Line, string Time, string Category, string Title, string Summary, string Raw)
+internal sealed record TimelineEntry(int Line, DateTimeOffset? Timestamp, string RecordType, string PayloadType,
+    string Category, string Title, string Summary, string Raw)
 {
     private static readonly JsonSerializerOptions PrettyJsonOptions = new()
     {
@@ -17,6 +18,8 @@ internal sealed record TimelineEntry(int Line, string Time, string Category, str
     };
 
     public bool HasSummary => !string.IsNullOrEmpty(Summary);
+    public bool HasTimestamp => Timestamp.HasValue;
+    public string Time => Timestamp?.ToLocalTime().ToString("G") ?? "";
 
     public string PrettyJson
     {
@@ -115,14 +118,12 @@ internal sealed record TimelineEntry(int Line, string Time, string Category, str
             string timestamp = Text(item, "timestamp");
             if (timestamp.Length == 0)
                 timestamp = Text(payload, "timestamp");
-            string time = DateTimeOffset.TryParse(timestamp, out var parsed)
-                ? parsed.ToLocalTime().ToString("G")
-                : "";
-            return new(line, time, category, title, summary, raw);
+            return new(line, DateTimeOffset.TryParse(timestamp, out var parsed) ? parsed : null,
+                type, subtype, category, title, summary, raw);
         }
         catch (JsonException)
         {
-            return new(line, "", "Invalid JSON", "Malformed JSONL record", "", raw);
+            return new(line, null, "", "", "Invalid JSON", "Malformed JSONL record", "Malformed JSONL record", raw);
         }
     }
 
